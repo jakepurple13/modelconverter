@@ -1,7 +1,6 @@
 import androidx.compose.animation.*
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.AlertDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material.icons.outlined.ArrowDropDown
@@ -9,17 +8,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.AwtWindow
 import androidx.compose.ui.window.FrameWindowScope
-import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.aspose.threed.Scene
-import java.awt.FileDialog
-import java.awt.Frame
+import javafx.application.Platform
+import javafx.embed.swing.JFXPanel
+import java.awt.*
 import java.awt.datatransfer.DataFlavor
 import java.awt.dnd.*
 import java.io.File
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +31,8 @@ fun FrameWindowScope.App() {
 
     var modelFile by remember { mutableStateOf<File?>(null) }
     val extensions = ModelOutputTypes.values().map { it.extension }
+
+    //TODO: Add multiple file converter
 
     if (filePicker) {
         FileDialog(
@@ -115,19 +118,30 @@ fun FrameWindowScope.App() {
         Crossfade(modelFile) { target ->
             when {
                 target != null -> {
-                    Column(
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
                         modifier = Modifier.padding(padding)
                     ) {
-                        Text(modelFile.toString())
+                        Column {
+                            Text(modelFile.toString())
 
+                            Spinner(
+                                selected = outputType,
+                                list = ModelOutputTypes.values().toList(),
+                                onSelectionChanged = { outputType = it },
+                                selectedToString = { it.extension },
+                            )
+                        }
 
-
-                        Spinner(
-                            selected = outputType,
-                            list = ModelOutputTypes.values().toList(),
-                            onSelectionChanged = { outputType = it },
-                            selectedToString = { it.extension },
-                        )
+                        /*WebView(
+                            """
+                                <html>
+                                    <script type="text/javascript" src="~/Downloads/o3dv/o3dv.min.js"></script>
+                                    <div class="online_3d_viewer" model="${modelFile.toString()}">
+                                    </div>
+                                </html>
+                            """.trimIndent(),
+                        )*/
                     }
                 }
 
@@ -207,7 +221,6 @@ fun <T> Spinner(
     selectedToString: (T) -> String = { it.toString() },
     modifier: Modifier = Modifier
 ) {
-
     var expanded by remember { mutableStateOf(false) } // initial value
 
     OutlinedCard(
@@ -221,7 +234,8 @@ fun <T> Spinner(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth()   // delete this modifier and use .wrapContentWidth() if you would like to wrap the dropdown menu around the content
+            // delete this modifier and use .wrapContentWidth() if you would like to wrap the dropdown menu around the content
+            modifier = Modifier.fillMaxWidth()
         ) {
             list.forEach { listEntry ->
                 DropdownMenuItem(
@@ -261,4 +275,29 @@ enum class ModelOutputTypes(val extension: String) {
     U3d("u3d"),
     Ply("ply"),
     Usd("usd"),
+}
+
+@Composable
+fun WebView(
+    content: String,
+    modifier: Modifier = Modifier
+) {
+    SwingPanel(
+        factory = { JFXWebView(content) },
+        modifier = modifier,
+    )
+}
+
+class JFXWebView(private val content: String) : JFXPanel() {
+    init {
+        Platform.runLater(::initialiseJavaFXScene)
+    }
+
+    private fun initialiseJavaFXScene() {
+        val webView = javafx.scene.web.WebView()
+        val webEngine = webView.engine
+        webEngine.loadContent(content)
+        val scene = javafx.scene.Scene(webView)
+        setScene(scene)
+    }
 }
